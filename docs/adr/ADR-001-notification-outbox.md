@@ -1,6 +1,6 @@
 # ADR-001: Deliver notifications through a transactional outbox and a notification port
 
-**Status:** Accepted
+**Status:** Accepted (updated in Milestone 3, see the last section)
 
 ## Context
 
@@ -41,3 +41,20 @@ dispatcher depends only on the interface). Failed sends are retried up to 5 time
 
 Block Telegram and SMTP for 2 minutes and register for an event: the confirmation must appear within 3 s,
 and the message must be delivered within 10 minutes of the registration after the channel is restored.
+
+## Update after implementation (Milestone 3)
+
+The decision stands. Three details changed when we built it:
+
+1. **Dispatcher trigger.** In the prototype the dispatcher runs when `POST /api/notifications/dispatch`
+   is called (a button on the demo page), not on a timer. This makes the outbox visible in the demo and
+   avoids sharing one SQLite connection between a background thread and request threads. A scheduler
+   that calls the same `dispatch_pending()` method can be added later without changing other code.
+2. **Channel per user.** The dispatcher receives a map of adapters (`telegram`, `email`) and asks the
+   Users module (`UserDirectory`) which channel a user has: Telegram if linked, otherwise e-mail.
+3. **Development mode.** Without `TELEGRAM_BOT_TOKEN` or `SMTP_HOST`, the adapters wrap console
+   stand-ins, so the project runs without accounts or network. Tests always use fake senders.
+
+Retry rule is implemented as decided: each failed send increases `attempts`; after 5 the message is `FAILED`.
+Checked by `test_registration_succeeds_while_notification_channels_are_down` and
+`test_message_is_marked_failed_after_five_attempts`.

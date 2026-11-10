@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDU Club Events</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 1.5rem; }
+  fieldset { border: 1px solid #ccc; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; }
+  label { display: block; margin: 6px 0; }
+  input, select, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+  button { padding: 8px 14px; margin-top: 8px; cursor: pointer; }
+  .event { border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+  .msg { padding: 8px 12px; border-radius: 6px; margin: 10px 0; }
+  .ok { background: #e3f6e3; } .err { background: #fde2e2; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 0.9rem; }
+  th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; }
+</style>
+</head>
+<body>
+<h1>Student-Club Event Management System</h1>
+
+<label>Acting as (prototype login):
+  <select id="user">
+    <option value="1">Club Organizer (organizer of SDU Robotics Club)</option>
+    <option value="2">Student One (Telegram linked)</option>
+    <option value="3">Student Two (e-mail only)</option>
+  </select>
+</label>
+
+<div id="msg"></div>
+
+<fieldset>
+  <legend>Create event (organizers)</legend>
+  <form id="create">
+    <label>Title <input name="title" required></label>
+    <label>Description <textarea name="description"></textarea></label>
+    <label>Starts at <input name="starts_at" type="datetime-local" required></label>
+    <label>Venue <input name="venue" required></label>
+    <label>Category <input name="category" value="Workshop" required></label>
+    <label>Capacity <input name="capacity" type="number" min="1" value="30" required></label>
+    <button type="submit">Create event</button>
+  </form>
+</fieldset>
+
+<h2>Events</h2>
+<div id="events">Loading...</div>
+
+<h2>Notification outbox</h2>
+<p>Registrations put a confirmation here. The dispatcher sends pending messages
+through the Telegram or e-mail adapter.</p>
+<button id="dispatch">Send pending notifications</button>
+<table id="outbox"></table>
+
+<script>
+const userId = () => document.getElementById('user').value;
+
+function show(text, ok) {
+  const box = document.getElementById('msg');
+  box.className = 'msg ' + (ok ? 'ok' : 'err');
+  box.textContent = text;
+}
+
+async function errorText(res) {
+  try {
+    const body = await res.json();
+    return typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+  } catch { return res.statusText; }
+}
+
+async function loadEvents() {
+  const res = await fetch('/api/events');
+  const events = await res.json();
+  const list = document.getElementById('events');
+  list.innerHTML = events.length ? '' : '<p>No events yet.</p>';
+  for (const e of events) {
+    const div = document.createElement('div');
+    div.className = 'event';
+    div.innerHTML = `<strong></strong><br><span></span><br><button>Register</button>`;
+    div.querySelector('strong').textContent = e.title;
+    div.querySelector('span').textContent =
+      `${new Date(e.starts_at).toLocaleString()} | ${e.venue} | ${e.category} | capacity ${e.capacity}`;
+    div.querySelector('button').onclick = () => register(e.id);
+    list.appendChild(div);
+  }
+}
+
+async function register(eventId) {
+  const res = await fetch(`/api/events/${eventId}/registrations`, {
+    method: 'POST', headers: { 'X-User-Id': userId() }
+  });
+  if (res.ok) show((await res.json()).message, true);
+  else show(`Registration failed: ${await errorText(res)}`, false);
+  loadOutbox();
+}
+
+async function loadOutbox() {
+  const rows = await (await fetch('/api/notifications')).json();
+  const table = document.getElementById('outbox');
+  table.innerHTML = '<tr><th>#</th><th>To user</th><th>Message</th><th>Status</th><th>Attempts</th></tr>';
+  for (const m of rows) {
+    const tr = document.createElement('tr');
+    for (const v of [m.id, m.recipient_id, m.text, m.status, m.attempts]) {
+      const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+
+document.getElementById('dispatch').onclick = async () => {
+  const r = await (await fetch('/api/notifications/dispatch', { method: 'POST' })).json();
+  show(`Dispatcher: ${r.sent} sent, ${r.failed_attempts} failed attempts.`, r.failed_attempts === 0);
+  loadOutbox();
+};
+
+document.getElementById('create').onsubmit = async (ev) => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const body = Object.fromEntries(f.entries());
+  body.club_id = 1;
+  body.capacity = Number(body.capacity);
+  const res = await fetch('/api/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-User-Id': userId() },
+    body: JSON.stringify(body)
+  });
+  if (res.ok) { show('Event created.', true); ev.target.reset(); loadEvents(); }
+  else show(`Could not create event: ${await errorText(res)}`, false);
+};
+
+loadEvents();
+loadOutbox();
+</script>
+</body>
+</html>
