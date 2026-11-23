@@ -32,7 +32,8 @@ def senders():
 @pytest.fixture
 def client(senders):
     """A fresh app with an in-memory database and fake senders (no file, no real services)."""
-    return TestClient(create_app(":memory:", senders=senders))
+    with TestClient(create_app(":memory:", senders=senders, demo_mode=True)) as session:
+        yield session
 
 
 def event_body(**overrides):

@@ -20,6 +20,10 @@ notification outbox (ADR-001).
    If any step fails, nothing is saved: no registration without a message, no message without a registration.
 4. The service receives the transaction as an injected function, so unit tests can use a real
    in-memory database or a fake.
+5. The app uses a SQLite connection per worker thread. Registration starts with `BEGIN IMMEDIATE`,
+   which acquires the write reservation before checking capacity. A concurrent request checks the
+   capacity after the first transaction commits. Cancelling a registration releases its seat in a
+   write transaction.
 
 ## Alternatives considered
 
@@ -35,13 +39,15 @@ notification outbox (ADR-001).
 - Double registration is impossible even with parallel requests.
 - One clear error (409) for the user in both paths.
 - Registration and its confirmation are always consistent.
+- Parallel registration requests cannot both take the last seat.
 
 **Negative**
 - The rule exists in two places (service and schema); both must change together.
-- The capacity check is still check-then-insert. With parallel requests the last seat could be
-  over-booked by one; we accept this for the prototype and would add row locking with PostgreSQL.
+- SQLite serializes write transactions, including those for different events. A larger deployment
+  would need to measure contention before choosing a different database or locking strategy.
 
 ## How it is checked
 
 `test_student_cannot_register_twice_for_the_same_event`, `test_registration_rejected_when_event_is_full`,
-`test_registration_is_rolled_back_if_outbox_write_fails`.
+and `test_registration_is_rolled_back_if_outbox_write_fails`. A separate integration test sends
+parallel requests for the last seat to an app using a temporary SQLite file.

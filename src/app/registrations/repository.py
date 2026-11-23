@@ -20,6 +20,9 @@ class RegistrationRepository(Protocol):
     def add(self, event_id: int, student_id: int, created_at: str) -> Registration: ...
     def exists(self, event_id: int, student_id: int) -> bool: ...
     def count_for_event(self, event_id: int) -> int: ...
+    def for_event(self, event_id: int) -> list[Registration]: ...
+    def for_student(self, student_id: int) -> list[Registration]: ...
+    def remove(self, event_id: int, student_id: int) -> bool: ...
 
 
 class SqliteRegistrationRepository:
@@ -48,3 +51,21 @@ class SqliteRegistrationRepository:
         return self._conn.execute(
             "SELECT COUNT(*) FROM registrations WHERE event_id = ?", (event_id,)
         ).fetchone()[0]
+
+    def for_event(self, event_id: int) -> list[Registration]:
+        rows = self._conn.execute(
+            "SELECT * FROM registrations WHERE event_id = ? ORDER BY id", (event_id,),
+        ).fetchall()
+        return [Registration(**dict(row)) for row in rows]
+
+    def for_student(self, student_id: int) -> list[Registration]:
+        rows = self._conn.execute(
+            "SELECT * FROM registrations WHERE student_id = ? ORDER BY id DESC", (student_id,),
+        ).fetchall()
+        return [Registration(**dict(row)) for row in rows]
+
+    def remove(self, event_id: int, student_id: int) -> bool:
+        result = self._conn.execute(
+            "DELETE FROM registrations WHERE event_id = ? AND student_id = ?", (event_id, student_id),
+        )
+        return result.rowcount == 1

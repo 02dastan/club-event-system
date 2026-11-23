@@ -5,6 +5,10 @@ Users -> users, audit_log; Clubs -> clubs; Events -> events;
 Registrations -> registrations; Notifications -> notification_outbox.
 """
 import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+from threading import Lock, local
+from uuid import uuid4
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -58,6 +62,8 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
     created_at   TEXT NOT NULL,
     sent_at      TEXT
 );
+CREATE INDEX IF NOT EXISTS registrations_student_id ON registrations (student_id);
+CREATE INDEX IF NOT EXISTS notification_outbox_status_id ON notification_outbox (status, id);
 """
 
 # Demo data so the prototype can be shown without a sign-up screen.
@@ -72,18 +78,92 @@ INSERT INTO clubs (id, name, organizer_id) VALUES
 """
 
 
-def connect(path: str = "club_events.db") -> sqlite3.Connection:
-    """Open the database, create tables and add demo data on first start.
+def connect(path: str = "club_events.db", *, demo_mode: bool = True) -> sqlite3.Connection:
+    """Initialize a standalone connection, including the sample users by default."""
+    conn = _open(path)
+    conn.executescript(SCHEMA)
+    if demo_mode:
+        _seed_demo(conn)
+    return conn
 
-    Use path=":memory:" in tests so no file is written.
-    The connection is used as a context manager for transactions:
-    `with conn:` commits on success and rolls back on an exception.
-    """
-    conn = sqlite3.connect(path, check_same_thread=False)
+
+def _open(path: str, *, uri: bool = False) -> sqlite3.Connection:
+    conn = sqlite3.connect(path, uri=uri, check_same_thread=False, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.executescript(SCHEMA)
+    return conn
+
+
+def _seed_demo(conn: sqlite3.Connection) -> None:
     if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
         conn.executescript(SEED)
-        conn.commit()
-    return conn
+
+
+class Database:
+    """Provide a SQLite connection per worker thread and serialize write transactions."""
+
+    def __init__(self, path: str, *, demo_mode: bool, extra_schema: tuple[str, ...] = ()):
+        self._memory = str(path) == ":memory:"
+        self._path = (
+            f"file:club-events-{uuid4().hex}?mode=memory&cache=shared"
+            if self._memory else str(Path(path))
+        )
+        self._local = local()
+        self._connections = []
+        self._connections_lock = Lock()
+        self._write_lock = Lock()
+        conn = self._connection()
+        try:
+            if not self._memory:
+                conn.execute("PRAGMA journal_mode = WAL")
+            conn.executescript("\n".join((SCHEMA, *extra_schema)))
+            if demo_mode:
+                _seed_demo(conn)
+        except BaseException:
+            self.close()
+            raise
+
+    def _connection(self) -> sqlite3.Connection:
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = _open(self._path, uri=self._memory)
+            self._local.conn = conn
+            self._local.contexts = []
+            with self._connections_lock:
+                self._connections.append(conn)
+        return conn
+
+    def execute(self, sql: str, parameters=()) -> sqlite3.Cursor:
+        return self._connection().execute(sql, parameters)
+
+    def create_function(self, name, argument_count, function, *, deterministic=False) -> None:
+        self._connection().create_function(name, argument_count, function, deterministic=deterministic)
+
+    @property
+    def in_transaction(self) -> bool:
+        return self._connection().in_transaction
+
+    @contextmanager
+    def transaction(self):
+        conn = self._connection()
+        if conn.in_transaction:
+            yield conn
+            return
+        with self._write_lock, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            yield conn
+
+    def __enter__(self) -> sqlite3.Connection:
+        context = self.transaction()
+        conn = context.__enter__()
+        self._local.contexts.append(context)
+        return conn
+
+    def __exit__(self, *exc):
+        return self._local.contexts.pop().__exit__(*exc)
+
+    def close(self) -> None:
+        with self._connections_lock:
+            for conn in self._connections:
+                conn.close()
+            self._connections.clear()

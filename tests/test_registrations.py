@@ -1,15 +1,19 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from threading import Barrier
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.database import connect
 from app.events.models import NewEvent
 from app.events.repository import SqliteEventRepository
 from app.events.service import EventService
+from app.main import create_app
 from app.registrations.repository import SqliteRegistrationRepository
 from app.registrations.service import RegistrationClosed, RegistrationService
 from app.users.access import AccessPolicy
-from conftest import ORGANIZER, STUDENT_ONE, STUDENT_TWO
+from conftest import ORGANIZER, STUDENT_ONE, STUDENT_TWO, event_body
 
 
 def registrations_count(client):
@@ -106,3 +110,39 @@ def test_registration_closed_after_event_started():
 
     with pytest.raises(RegistrationClosed):
         service.register(student_id=2, event_id=event.id)
+
+
+def test_cancel_registration_releases_seat_and_updates_my_list(client, create_event):
+    event_id = create_event(capacity=1)
+    registrations = f"/api/events/{event_id}/registrations"
+    assert client.post(registrations, headers=STUDENT_ONE).status_code == 201
+
+    mine = client.get("/api/registrations/me", headers=STUDENT_ONE)
+    assert [entry["event"]["id"] for entry in mine.json()] == [event_id]
+    assert client.get(registrations, headers=STUDENT_TWO).status_code == 403
+    assert client.get(registrations, headers=ORGANIZER).json()[0]["student_id"] == 2
+
+    assert client.delete(f"{registrations}/me", headers=STUDENT_TWO).status_code == 204
+    assert client.post(registrations, headers=STUDENT_TWO).status_code == 409
+    assert client.delete(f"{registrations}/me", headers=STUDENT_ONE).status_code == 204
+    assert client.get("/api/registrations/me", headers=STUDENT_ONE).json() == []
+    assert client.post(registrations, headers=STUDENT_TWO).status_code == 201
+
+
+def test_concurrent_requests_cannot_overbook_the_last_seat(tmp_path, senders):
+    app = create_app(tmp_path / "last-seat.db", senders=senders, demo_mode=True)
+    with TestClient(app) as session:
+        event_id = session.post("/api/events", json=event_body(capacity=1), headers=ORGANIZER).json()["id"]
+        registrations = f"/api/events/{event_id}/registrations"
+        start = Barrier(2, timeout=5)
+
+        def register(headers):
+            start.wait()
+            return session.post(registrations, headers=headers).status_code
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(register, [STUDENT_ONE, STUDENT_TWO]))
+
+        assert sorted(results) == [201, 409]
+        assert len(session.get(registrations, headers=ORGANIZER).json()) == 1
+        assert len(session.get("/api/notifications").json()) == 1

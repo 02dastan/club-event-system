@@ -10,6 +10,22 @@ from datetime import datetime
 from typing import Optional, Protocol
 
 
+NOTIFICATION_SCHEMA = """
+CREATE TABLE IF NOT EXISTS notification_reminders (
+    event_id     INTEGER NOT NULL,
+    recipient_id INTEGER NOT NULL REFERENCES users (id),
+    starts_at    TEXT NOT NULL,
+    PRIMARY KEY (event_id, recipient_id, starts_at)
+);
+
+CREATE TABLE IF NOT EXISTS telegram_link_codes (
+    user_id    INTEGER PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+    code_hash  TEXT NOT NULL UNIQUE,
+    expires_at INTEGER NOT NULL
+);
+"""
+
+
 @dataclass(frozen=True)
 class OutboxMessage:
     id: int
@@ -35,6 +51,19 @@ class SqliteOutbox:
             "INSERT INTO notification_outbox (recipient_id, text, created_at) VALUES (?, ?, ?)",
             (recipient_id, text, _now()),
         )
+
+    def enqueue_reminder(self, event_id: int, recipient_id: int, starts_at: datetime,
+                         text: str) -> bool:
+        """Deduplicate each scheduled start in the same transaction as enqueue."""
+        cursor = self._conn.execute(
+            "INSERT INTO notification_reminders (event_id, recipient_id, starts_at)"
+            " VALUES (?, ?, ?) ON CONFLICT (event_id, recipient_id, starts_at) DO NOTHING",
+            (event_id, recipient_id, starts_at.isoformat()),
+        )
+        if cursor.rowcount == 0:
+            return False
+        self.enqueue(recipient_id, text)
+        return True
 
     def pending(self, limit: int = 20) -> list[OutboxMessage]:
         rows = self._conn.execute(

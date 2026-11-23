@@ -27,3 +27,16 @@ class UserDirectory:
         if row["telegram_chat_id"]:
             return Contact("telegram", row["telegram_chat_id"])
         return Contact("email", row["email"])
+
+    def link_telegram(self, user_id: int, chat_id: int) -> bool:
+        """Attach a Telegram chat only if it is available to this user."""
+        address = str(chat_id)
+        updated = self._conn.execute(
+            "UPDATE users SET telegram_chat_id = ? WHERE id = ? AND NOT EXISTS ("
+            " SELECT 1 FROM users WHERE telegram_chat_id = ? AND id <> ?)",
+            (address, user_id, address, user_id),
+        )
+        return updated.rowcount == 1
+
+    def unlink_telegram(self, user_id: int) -> None:
+        self._conn.execute("UPDATE users SET telegram_chat_id = NULL WHERE id = ?", (user_id,))

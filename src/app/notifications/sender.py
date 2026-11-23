@@ -10,7 +10,7 @@ failure style into one DeliveryError. The dispatcher only knows NotificationSend
 import logging
 import smtplib
 from email.message import EmailMessage
-from typing import Callable, Protocol
+from typing import Callable, Optional, Protocol
 
 log = logging.getLogger("notifications")
 
@@ -52,16 +52,36 @@ class HttpTelegramBotApi:
     """Real client for https://api.telegram.org (used only when a bot token is configured)."""
 
     def __init__(self, token: str, timeout: float = 5.0):
-        self._url = f"https://api.telegram.org/bot{token}/sendMessage"
+        self._url = f"https://api.telegram.org/bot{token}"
         self._timeout = timeout
 
     def send_message(self, chat_id: int, text: str) -> dict:
+        return self._post("sendMessage", {"chat_id": chat_id, "text": text})
+
+    def get_updates(self, offset: Optional[int] = None) -> list[dict]:
+        payload = {"allowed_updates": ["message"], "timeout": 0}
+        if offset is not None:
+            payload["offset"] = offset
+        result = self._post("getUpdates", payload)
+        if not result.get("ok") or not isinstance(result.get("result"), list):
+            raise DeliveryError("Telegram refused the update request.")
+        return result["result"]
+
+    def _post(self, method: str, payload: dict) -> dict:
         import json
         import urllib.request
-        body = json.dumps({"chat_id": chat_id, "text": text}).encode()
-        req = urllib.request.Request(self._url, data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=self._timeout) as resp:
-            return json.load(resp)
+        body = json.dumps(payload).encode()
+        req = urllib.request.Request(f"{self._url}/{method}", data=body,
+                                     headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                result = json.load(resp)
+        except (ValueError, OSError):
+            # The underlying exception can contain the bot token in its URL.
+            raise DeliveryError(f"Telegram {method} request failed.") from None
+        if not isinstance(result, dict):
+            raise DeliveryError(f"Telegram {method} returned an invalid response.")
+        return result
 
 
 class ConsoleTelegramBotApi:

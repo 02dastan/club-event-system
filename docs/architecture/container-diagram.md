@@ -1,4 +1,4 @@
-# Container Diagram (C4 level 2), updated in Milestone 3
+# Container Diagram (C4 level 2)
 
 ```mermaid
 flowchart TB
@@ -7,28 +7,28 @@ flowchart TB
     A["System administrator<br/>[Person]"]
 
     subgraph SYS["Student-Club Event Management System"]
-        WEB["Web app<br/>[HTML + JavaScript, served by the API]<br/>Event list, create-event form,<br/>Register button, outbox view.<br/>Contains no business rules."]
-        API["Backend API<br/>[Python, FastAPI, modular monolith]<br/>Users, Clubs, Events, Registrations,<br/>Notifications modules; role checks,<br/>business rules, notification dispatcher."]
-        DB[("Database<br/>[SQLite]<br/>users, audit_log, clubs, events,<br/>registrations, notification_outbox")]
+        WEB["Web app<br/>[HTML + JavaScript, served by the API]<br/>Catalog, club membership, registrations,<br/>organizer and administrator screens."]
+        API["Backend API<br/>[Python, FastAPI, modular monolith]<br/>Users, Clubs, Events, Registrations,<br/>Notifications, and a scheduled dispatcher."]
+        DB[("Database<br/>[SQLite]<br/>Accounts, sessions, clubs, events,<br/>registrations, outbox, and audit log.")]
     end
 
     N["Notification service<br/>[External: Telegram Bot API / SMTP]"]
 
-    S -- "uses in browser<br/>[HTTP]" --> WEB
-    O -- "uses in browser<br/>[HTTP]" --> WEB
-    A -- "uses in browser<br/>[HTTP]" --> WEB
-    WEB -- "calls REST API<br/>[HTTP / JSON]" --> API
+    S -- "uses in browser" --> WEB
+    O -- "uses in browser" --> WEB
+    A -- "uses in browser" --> WEB
+    WEB -- "REST API and session cookie<br/>[HTTP / JSON, HTTPS when hosted]" --> API
     API -- "reads and writes in<br/>transactions [SQL]" --> DB
-    API -- "sends messages through<br/>TelegramAdapter / SmtpAdapter" --> N
-    N -- "delivers confirmations<br/>and reminders" --> S
+    API -- "sends via adapters and polls Telegram<br/>for account-link commands" --> N
+    N -- "delivers confirmations,<br/>announcements, and reminders" --> S
 ```
 
 **Legend.** Boxes inside the frame are containers of our system. Boxes outside are people and the external system.
 
-## Changes from Milestone 2
+## Implementation notes
 
-| What changed | Why |
-|---|---|
-| Technology is now named: FastAPI (Python) for the Backend API, SQLite for the Database. | Chosen for the prototype; one file database needs no server, so every member can run the project. The relational design is unchanged, so moving to PostgreSQL later only changes the repositories. |
-| The Web app is a static page served by the Backend API, not a separate single-page app project. | One deployable unit is enough for the prototype. It is still a separate container at run time (runs in the browser). |
-| The dispatcher is triggered by an API call (`POST /api/notifications/dispatch`) instead of a timer. | See the update in ADR-001. |
+- FastAPI serves the web app as static assets. The browser displays state and submits actions. The API enforces
+  role, ownership, registration, and capacity rules.
+- SQLite uses a connection per worker thread and explicit write transactions for operations that need to be atomic.
+- The API runs the notification dispatcher on a schedule in normal mode. Demo mode uses a manual dispatcher and
+  console transport adapters so the queue is visible during the presentation. See [ADR-001](../adr/ADR-001-notification-outbox.md).

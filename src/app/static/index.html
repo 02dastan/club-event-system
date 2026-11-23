@@ -4,144 +4,100 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SDU Club Events</title>
-<style>
-  :root {
-    font-family: system-ui, sans-serif;
-    color: #182938;
-    background: #f3f6f8;
-    --border: #d7e0e6;
-    --accent: #14614e;
-    --muted: #4c5e6c;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; }
-  .shell { width: min(100% - 32px, 70rem); margin-inline: auto; }
-  .site-header { background: #142b3b; color: white; }
-  .header-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px; }
-  h1, h2, h3, p { margin: 0; }
-  h1 { font-size: clamp(1.5rem, 4vw, 2rem); }
-  h2 { font-size: 1.25rem; }
-  h3 { font-size: 1.125rem; }
-  p { line-height: 1.5; }
-  main { padding-block: 24px 40px; }
-  .workspace { display: grid; grid-template-columns: minmax(0, 2fr) minmax(17rem, 1fr); gap: 20px; align-items: start; }
-  .panel { min-width: 0; padding: clamp(14px, 3vw, 22px); background: white; border: 1px solid var(--border); border-radius: 14px; }
-  label { display: grid; min-width: 0; gap: 5px; font-size: .875rem; font-weight: 600; }
-  input, select, textarea, button { font: inherit; }
-  input, select, textarea {
-    display: block; width: 100%; min-width: 0; min-height: 44px;
-    padding: 8px 10px; color: #182938; background: white;
-    border: 1px solid #8b9eab; border-radius: 7px; font-size: 1rem; font-weight: 400;
-  }
-  select {
-    appearance: none; padding-right: 32px;
-    background-image: linear-gradient(45deg, transparent 50%, #4c5e6c 50%),
-      linear-gradient(135deg, #4c5e6c 50%, transparent 50%);
-    background-position: right 15px center, right 10px center;
-    background-size: 5px 5px; background-repeat: no-repeat;
-  }
-  textarea { resize: vertical; min-height: 5rem; }
-  button {
-    min-height: 44px; padding: 8px 14px; border: 1px solid transparent; border-radius: 7px;
-    background: var(--accent); color: white; font-weight: 650; cursor: pointer;
-  }
-  button:hover { background: #104c3e; }
-  button:disabled { opacity: .6; cursor: wait; }
-  button.secondary { background: white; color: var(--accent); border-color: #8b9eab; }
-  button.secondary:hover { background: #edf6f2; }
-  :focus-visible { outline: 3px solid #2278c9; outline-offset: 3px; }
-  .filters, .create-form { display: grid; gap: 12px; margin-top: 16px; }
-  .filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .search { grid-column: 1 / -1; }
-  .catalog-status { color: var(--muted); margin-block: 12px; }
-  #clear-filters { margin-bottom: 12px; }
-  .events { display: grid; gap: 12px; }
-  .event { border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow-wrap: anywhere; }
-  .category {
-    display: inline-block; margin-bottom: 8px; border-radius: 5px; padding: 3px 8px;
-    background: #e7f2ed; color: #174d3d; font-size: .8125rem; font-weight: 650;
-  }
-  .event-details { margin: 10px 0; color: var(--muted); font-size: .875rem; }
-  .event-description { margin-block: 10px; white-space: pre-wrap; }
-  .message:not(:empty) { margin-top: 10px; border-radius: 7px; padding: 8px 10px; overflow-wrap: anywhere; }
-  .message.ok { color: #154b36; background: #e3f5eb; }
-  .message.err { color: #8c2636; background: #fcebef; }
-  .outbox-panel { margin-top: 20px; }
-  .outbox-panel > p { margin-block: 8px 12px; color: var(--muted); }
-  .table-scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .875rem; }
-  th, td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; }
-  thead { background: #edf2f5; }
-  td { overflow-wrap: anywhere; }
-  td:nth-child(3) { min-width: 10rem; }
-  .outbox-state { color: var(--muted); }
-  @media (max-width: 48rem) {
-    .workspace { grid-template-columns: minmax(0, 1fr); }
-  }
-  @media (max-width: 35rem) {
-    .filters { grid-template-columns: minmax(0, 1fr); }
-    .demo-user { width: 100%; }
-    th, td { padding-inline: 6px; }
-    td:nth-child(3) { min-width: 8rem; }
-  }
-</style>
+<link href="/static/style.css" rel="stylesheet">
+<script type="module" src="/static/app.js"></script>
 </head>
 <body>
 <header class="site-header">
   <div class="shell header-inner">
     <h1>SDU Club Events</h1>
-    <label class="demo-user">Demo user
-      <select id="user">
-        <option value="1">Club Organizer (SDU Robotics Club)</option>
-        <option value="2">Student One (Telegram linked)</option>
-        <option value="3">Student Two (e-mail only)</option>
-      </select>
-    </label>
+    <div class="header-actions">
+      <button type="button" id="account-button" class="header-action" data-open="account" hidden>Sign in</button>
+      <label id="demo-user" class="demo-user" hidden>Demo user
+        <select id="user">
+          <option value="1">Club Organizer (SDU Robotics Club)</option>
+          <option value="2">Student One (Telegram linked)</option>
+          <option value="3">Student Two (e-mail only)</option>
+          <option value="4">Platform Admin</option>
+        </select>
+      </label>
+    </div>
   </div>
 </header>
 
+<div class="nav-shell">
+  <nav class="shell navigation" aria-label="Main navigation">
+    <button type="button" data-open="catalog" aria-current="page">Events</button>
+    <button type="button" data-open="registrations" data-role="student" hidden>My registrations</button>
+    <button type="button" data-open="clubs">Clubs</button>
+    <button type="button" data-open="admin" data-role="admin" hidden>Administration</button>
+    <button type="button" data-open="outbox" id="outbox-nav" hidden>Demo outbox</button>
+  </nav>
+</div>
+
 <main class="shell">
-  <div class="workspace">
-    <section class="panel" aria-labelledby="catalog-heading">
-      <h2 id="catalog-heading">Events</h2>
-      <form id="filters" class="filters" role="search" aria-label="Event catalog">
-        <label class="search">Search events
-          <input id="search" type="search" placeholder="Title, description or venue">
-        </label>
-        <label>Category
-          <select id="category-filter"><option value="">All categories</option></select>
-        </label>
-        <label>Event date
-          <input id="date-filter" type="date">
-        </label>
-        <label>Hosting club
-          <select id="club-filter"><option value="">All clubs</option></select>
-        </label>
-      </form>
-      <p id="event-status" class="catalog-status" role="status">Loading events…</p>
-      <button id="clear-filters" class="secondary" type="button" form="filters" hidden>Clear filters</button>
-      <button id="retry-events" class="secondary" type="button" hidden>Retry loading events</button>
-      <div id="events" class="events"></div>
-    </section>
+  <p id="page-message" class="message" role="status"></p>
+  <section data-page="catalog">
+    <div id="catalog-layout" class="workspace">
+      <section class="panel" aria-labelledby="catalog-heading">
+        <h2 id="catalog-heading">Events</h2>
+        <form id="filters" class="filters" role="search" aria-label="Event catalog">
+          <label class="search">Search events
+            <input id="search" name="q" type="search" maxlength="200" placeholder="Title, description or venue">
+          </label>
+          <label>Category
+            <select id="category-filter" name="category"><option value="">All categories</option></select>
+          </label>
+          <label>Event date
+            <input id="date-filter" name="date" type="date">
+          </label>
+          <label>Hosting club
+            <select id="club-filter" name="club_id"><option value="">All clubs</option></select>
+          </label>
+        </form>
+        <p id="event-status" class="catalog-status" role="status">Loading events…</p>
+        <button id="clear-filters" class="secondary" type="button" hidden>Clear filters</button>
+        <button id="retry-events" class="secondary" type="button" hidden>Retry loading events</button>
+        <div id="events" class="events"></div>
+        <div class="button-row pagination" id="pagination" hidden>
+          <button type="button" id="previous-page" class="secondary">Previous</button>
+          <button type="button" id="next-page" class="secondary">Next</button>
+        </div>
+      </section>
 
-    <section class="panel" aria-labelledby="create-heading">
-      <h2 id="create-heading">Create event</h2>
-      <form id="create" class="create-form">
-        <label>Title <input name="title" maxlength="200" required></label>
-        <label>Description <textarea name="description"></textarea></label>
-        <label>Starts at <input name="starts_at" type="datetime-local" required></label>
-        <label>Venue <input name="venue" required></label>
-        <label>Category <input name="category" value="Workshop" required></label>
-        <label>Capacity <input name="capacity" type="number" min="1" value="30" required></label>
-        <button type="submit">Create event</button>
-      </form>
-      <p id="create-message" class="message" role="status"></p>
-    </section>
-  </div>
+      <section id="event-editor" class="panel" aria-labelledby="create-heading" hidden>
+        <h2 id="create-heading">Create event</h2>
+        <form id="create" class="create-form">
+          <label>Hosting club <select name="club_id" required></select></label>
+          <label>Title <input name="title" maxlength="200" required></label>
+          <label>Description <textarea name="description"></textarea></label>
+          <label>Starts at <input name="starts_at" type="datetime-local" required></label>
+          <label>Venue <input name="venue" required></label>
+          <label>Category <input name="category" value="Workshop" required></label>
+          <label>Capacity <input name="capacity" type="number" min="1" value="30" required></label>
+          <div class="button-row">
+            <button type="submit" id="save-event">Create event</button>
+            <button type="button" class="secondary" id="cancel-edit" hidden>Stop editing</button>
+          </div>
+        </form>
+        <p id="create-message" class="message" role="status"></p>
+      </section>
+    </div>
+  </section>
 
-  <section class="panel outbox-panel" aria-labelledby="outbox-heading">
+  <section data-page="registrations" class="panel" hidden aria-labelledby="registrations-heading">
+    <h2 id="registrations-heading">My registrations</h2>
+    <p id="registrations-status" class="catalog-status" role="status"></p>
+    <div id="my-registrations" class="events"></div>
+  </section>
+
+  <section data-page="clubs" id="clubs-page" hidden></section>
+  <section data-page="account" id="account-page" hidden></section>
+  <section data-page="admin" id="admin-page" hidden></section>
+
+  <section data-page="outbox" class="panel outbox-panel" aria-labelledby="outbox-heading" hidden>
     <h2 id="outbox-heading">Notification outbox</h2>
-    <p>Registration confirmations are queued for Telegram or e-mail.</p>
+    <p>Demo deliveries are printed in the server console.</p>
     <button id="dispatch" type="button">Send pending notifications</button>
     <p id="dispatch-message" class="message" role="status"></p>
     <p id="outbox-status" class="outbox-state" role="status">Loading notifications…</p>
@@ -160,218 +116,18 @@
     <h3></h3>
     <p class="event-details"><time></time><br><span class="venue"></span><br><span class="host"></span></p>
     <p class="event-description" hidden></p>
-    <button type="button">Register</button>
+    <div class="button-row"></div>
     <p class="message registration-message" role="status"></p>
   </article>
 </template>
 
-<script>
-const user = document.getElementById('user');
-const events = document.getElementById('events');
-const template = document.getElementById('event-card');
-const filters = document.getElementById('filters');
-const search = document.getElementById('search');
-const categoryFilter = document.getElementById('category-filter');
-const dateFilter = document.getElementById('date-filter');
-const clubFilter = document.getElementById('club-filter');
-const eventStatus = document.getElementById('event-status');
-const clearFilters = document.getElementById('clear-filters');
-const retryEvents = document.getElementById('retry-events');
-const outbox = document.getElementById('outbox');
-const outboxStatus = document.getElementById('outbox-status');
-const demoClub = { id: 1, name: 'SDU Robotics Club' };
-const clubName = (id) => id === demoClub.id ? demoClub.name : `Club #${id}`;
-const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-
-let catalog = null;
-let outboxRequest = 0;
-
-function show(message, text, ok) {
-  message.classList.toggle('ok', ok);
-  message.classList.toggle('err', !ok);
-  message.textContent = text;
-}
-
-async function request(path, options) {
-  const res = await fetch(path, options);
-  const body = await res.json().catch(() => null);
-  if (!res.ok) {
-    const detail = body?.detail;
-    const validationErrors = Array.isArray(detail) ? detail.map(({ msg }) => msg).join(' ') : '';
-    throw new Error(typeof detail === 'string' ? detail : validationErrors || `HTTP ${res.status}`);
-  }
-  if (body === null) throw new Error('The server returned an unreadable response.');
-  return body;
-}
-
-function createCard(event) {
-  const card = template.content.firstElementChild.cloneNode(true);
-  card.querySelector('h3').textContent = event.title;
-  card.querySelector('.category').textContent = event.category;
-  card.querySelector('.venue').textContent = `${event.venue} · Capacity ${event.capacity}`;
-  card.querySelector('.host').textContent = clubName(event.club_id);
-  const time = card.querySelector('time');
-  time.dateTime = event.starts_at;
-  time.textContent = dateFormat.format(new Date(event.starts_at));
-  const description = card.querySelector('.event-description');
-  description.textContent = event.description;
-  description.hidden = !event.description.trim();
-  const button = card.querySelector('button');
-  const message = card.querySelector('.registration-message');
-  button.setAttribute('aria-label', `Register for ${event.title}`);
-  button.onclick = () => register(event.id, button, message);
-  return card;
-}
-
-function setOptions(select, values) {
-  const previous = select.value;
-  const options = [...values].sort((a, b) => a[1].localeCompare(b[1]))
-    .map(([value, label]) => new Option(label, value));
-  select.replaceChildren(select.options[0], ...options);
-  select.value = options.some((option) => option.value === previous) ? previous : '';
-}
-
-function filterEvents() {
-  if (catalog === null) return;
-  const query = search.value.trim().toLowerCase();
-  const category = categoryFilter.value;
-  const date = dateFilter.value;
-  const club = clubFilter.value;
-  let count = 0;
-  for (const { event, card, searchableText } of catalog) {
-    const matches = searchableText.includes(query)
-      && (!category || event.category === category)
-      && (!date || event.starts_at.slice(0, 10) === date)
-      && (!club || String(event.club_id) === club);
-    card.hidden = !matches;
-    if (matches) count += 1;
-  }
-  clearFilters.hidden = !(search.value || category || date || club);
-  if (!catalog.length) eventStatus.textContent = 'No events yet.';
-  else if (!count) eventStatus.textContent = 'No events match your filters.';
-  else eventStatus.textContent = `${count} ${count === 1 ? 'event' : 'events'}`;
-}
-
-async function loadEvents() {
-  retryEvents.hidden = true;
-  eventStatus.textContent = 'Loading events…';
-  try {
-    const data = await request('/api/events');
-    const existing = new Map((catalog ?? []).map((entry) => [entry.event.id, entry]));
-    catalog = data.map((event) => {
-      const previous = existing.get(event.id);
-      // Keep registration feedback when the organizer adds another event.
-      if (previous && JSON.stringify(previous.event) === JSON.stringify(event)) return previous;
-      return {
-        event,
-        card: createCard(event),
-        searchableText: [event.title, event.description, event.venue].join(' ').toLowerCase(),
-      };
-    });
-    setOptions(categoryFilter, new Map(data.map((event) => [event.category, event.category])));
-    setOptions(clubFilter, new Map(data.map((event) => [event.club_id, clubName(event.club_id)])));
-    events.replaceChildren(...catalog.map(({ card }) => card));
-    filterEvents();
-  } catch (error) {
-    eventStatus.textContent = `Could not load events: ${error.message}`;
-    retryEvents.hidden = false;
-  }
-}
-
-async function register(eventId, button, message) {
-  const actingUser = user.value;
-  button.disabled = true;
-  message.textContent = '';
-  try {
-    const result = await request(`/api/events/${eventId}/registrations`, {
-      method: 'POST', headers: { 'X-User-Id': actingUser },
-    });
-    if (user.value === actingUser) show(message, result.message, true);
-    loadOutbox();
-  } catch (error) {
-    if (user.value === actingUser) show(message, `Registration failed: ${error.message}`, false);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function loadOutbox() {
-  const requestId = ++outboxRequest;
-  try {
-    const rows = await request('/api/notifications');
-    if (requestId !== outboxRequest) return;
-    const body = outbox.tBodies[0];
-    body.replaceChildren();
-    for (const message of rows) {
-      const row = body.insertRow();
-      for (const value of [message.id, message.recipient_id, message.text, message.status, message.attempts]) {
-        row.insertCell().textContent = value;
-      }
-    }
-    outbox.parentElement.hidden = !rows.length;
-    outboxStatus.textContent = rows.length ? '' : 'No notifications yet.';
-  } catch (error) {
-    if (requestId === outboxRequest) outboxStatus.textContent = `Could not load notifications: ${error.message}`;
-  }
-}
-
-document.getElementById('dispatch').onclick = async ({ currentTarget: button }) => {
-  const message = document.getElementById('dispatch-message');
-  button.disabled = true;
-  message.textContent = '';
-  try {
-    const result = await request('/api/notifications/dispatch', { method: 'POST' });
-    show(message, `Dispatcher: ${result.sent} sent, ${result.failed_attempts} failed attempts.`, result.failed_attempts === 0);
-  } catch (error) {
-    show(message, `Could not send notifications: ${error.message}`, false);
-  } finally {
-    button.disabled = false;
-    loadOutbox();
-  }
-};
-
-document.getElementById('create').onsubmit = async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const button = form.querySelector('button');
-  const message = document.getElementById('create-message');
-  const actingUser = user.value;
-  const body = Object.fromEntries(new FormData(form));
-  body.club_id = demoClub.id;
-  body.capacity = Number(body.capacity);
-  button.disabled = true;
-  message.textContent = '';
-  try {
-    await request('/api/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-Id': actingUser },
-      body: JSON.stringify(body),
-    });
-    if (user.value === actingUser) show(message, 'Event created.', true);
-    form.reset();
-    await loadEvents();
-  } catch (error) {
-    if (user.value === actingUser) show(message, `Could not create event: ${error.message}`, false);
-  } finally {
-    button.disabled = false;
-  }
-};
-
-user.onchange = () => {
-  document.getElementById('create-message').textContent = '';
-  for (const message of events.querySelectorAll('.registration-message')) message.textContent = '';
-};
-filters.onsubmit = (event) => event.preventDefault();
-filters.oninput = filterEvents;
-clearFilters.onclick = () => {
-  filters.reset();
-  search.focus();
-  filterEvents();
-};
-retryEvents.onclick = loadEvents;
-
-loadEvents();
-loadOutbox();
-</script>
+<dialog id="participants" class="panel" aria-labelledby="participants-heading">
+  <div class="button-row dialog-row">
+    <h2 id="participants-heading">Participants</h2>
+    <form method="dialog"><button class="secondary">Close</button></form>
+  </div>
+  <p id="participants-status" class="catalog-status" role="status"></p>
+  <div id="participant-list" class="events"></div>
+</dialog>
 </body>
 </html>

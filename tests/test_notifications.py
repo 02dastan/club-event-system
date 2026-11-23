@@ -15,7 +15,7 @@ def outbox_statuses(client):
 
 def test_registration_succeeds_while_notification_channels_are_down():
     down = {"telegram": FakeNotificationSender(fail=True), "email": FakeNotificationSender(fail=True)}
-    client = TestClient(create_app(":memory:", senders=down))
+    client = TestClient(create_app(":memory:", senders=down, demo_mode=True))
     event_id = client.post("/api/events", json=event_body(), headers=ORGANIZER).json()["id"]
 
     response = client.post(f"/api/events/{event_id}/registrations", headers=STUDENT_ONE)
