@@ -58,9 +58,21 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
     created_at   TEXT NOT NULL,
     sent_at      TEXT
 );
+
+CREATE TABLE IF NOT EXISTS processed_events (
+    consumer TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    PRIMARY KEY (consumer, event_id)
+);
+
+CREATE TABLE IF NOT EXISTS club_stats (
+    club_id        INTEGER PRIMARY KEY REFERENCES clubs (id),
+    events_created INTEGER NOT NULL DEFAULT 0,
+    last_event_at  TEXT
+);
 """
 
-# Demo data so the prototype can be shown without a sign-up screen.
+# Demo data
 SEED = """
 INSERT INTO users (id, name, email, telegram_chat_id, role) VALUES
     (1, 'Club Organizer', 'organizer@example.com', NULL,        'organizer'),
