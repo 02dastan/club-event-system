@@ -5,10 +5,13 @@ are saved in ONE transaction (ADR-001); Telegram/SMTP are never called here.
 """
 from datetime import datetime
 from typing import Callable, ContextManager
+from uuid import uuid4
 
 from ..events.service import EventService
+from ..messaging.event_bus import EventBus
 from ..notifications.outbox import Outbox
 from ..users.access import AccessPolicy
+from .domain_events import StudentRegistered
 from .repository import DuplicateRegistration, Registration, RegistrationRepository
 
 
@@ -20,13 +23,15 @@ class RegistrationService:
     def __init__(self, repository: RegistrationRepository, events: EventService,
                  access: AccessPolicy, outbox: Outbox,
                  transaction: Callable[[], ContextManager],
-                 clock: Callable[[], datetime] = datetime.now):
+                 clock: Callable[[], datetime] = datetime.now, *,
+                 publisher: EventBus | None = None):
         self._repository = repository
         self._events = events
         self._access = access
         self._outbox = outbox
         self._transaction = transaction
         self._clock = clock
+        self._publisher = publisher
 
     def register(self, student_id: int, event_id: int) -> Registration:
         event = self._events.get_event(event_id)  # raises EventNotFound
@@ -40,11 +45,18 @@ class RegistrationService:
                 raise DuplicateRegistration("Student is already registered for this event")
             if self._repository.count_for_event(event_id) >= event.capacity:
                 raise RegistrationClosed("Registration is closed: the event is full")
-            registration = self._repository.add(
-                event_id, student_id, self._clock().isoformat(timespec="seconds"))
+            registered_at = self._clock().replace(microsecond=0)
+            registration = self._repository.add(event_id, student_id, registered_at.isoformat())
             self._outbox.enqueue(
                 student_id,
                 f"You are registered for '{event.title}' on "
                 f"{event.starts_at:%d.%m.%Y %H:%M} at {event.venue}.",
             )
+        if self._publisher is not None:
+            self._publisher.publish(StudentRegistered(
+                event_id=str(uuid4()),
+                registration_id=registration.id,
+                student_id=student_id,
+                occurred_at=registered_at,
+            ))
         return registration

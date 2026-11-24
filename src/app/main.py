@@ -27,12 +27,14 @@ from .notifications.outbox import SqliteOutbox
 from .notifications.router import make_router as notifications_router
 from .notifications.sender import (ConsoleSmtp, ConsoleTelegramBotApi, HttpTelegramBotApi,
                                    NotificationSender, SmtpAdapter, TelegramAdapter)
+from .registrations.domain_events import StudentRegistered
 from .registrations.repository import SqliteRegistrationRepository
 from .registrations.router import make_router as registrations_router
 from .registrations.service import RegistrationService
 from .statistics.club_stats import ClubStatisticsConsumer
 from .users.access import AccessPolicy
 from .users.contacts import UserDirectory
+from .users.registration_audit import RegistrationAuditConsumer
 
 STATIC = Path(__file__).parent / "static"
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -66,11 +68,12 @@ def create_app(db_path: str = "club_events.db",
     event_bus = EventBus()
     club_stats = ClubStatisticsConsumer(conn)
     event_bus.subscribe(EventCreated, club_stats.handle)
+    event_bus.subscribe(StudentRegistered, RegistrationAuditConsumer(conn).handle)
 
     event_service = EventService(SqliteEventRepository(conn), access, clock, publisher=event_bus)
     registration_service = RegistrationService(
         SqliteRegistrationRepository(conn), event_service, access, outbox,
-        transaction=lambda: conn, clock=clock)
+        transaction=lambda: conn, clock=clock, publisher=event_bus)
     dispatcher = NotificationDispatcher(outbox, contacts, senders or default_senders())
 
     app = FastAPI(title="Student-Club Event Management System")
