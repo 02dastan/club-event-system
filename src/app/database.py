@@ -23,6 +23,23 @@ CREATE TABLE IF NOT EXISTS audit_log (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS counted_denials (
+    event_id INTEGER PRIMARY KEY REFERENCES audit_log (id),
+    user_id INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS denied_attempt_counts (
+    user_id INTEGER PRIMARY KEY,
+    attempts INTEGER NOT NULL
+);
+
+CREATE TRIGGER IF NOT EXISTS count_new_denial
+AFTER INSERT ON counted_denials
+BEGIN
+    INSERT INTO denied_attempt_counts (user_id, attempts) VALUES (NEW.user_id, 1)
+    ON CONFLICT(user_id) DO UPDATE SET attempts = attempts + 1;
+END;
+
 CREATE TABLE IF NOT EXISTS clubs (
     id           INTEGER PRIMARY KEY,
     name         TEXT NOT NULL,

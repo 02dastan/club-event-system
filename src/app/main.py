@@ -30,6 +30,7 @@ from .registrations.router import make_router as registrations_router
 from .registrations.service import RegistrationService
 from .users.access import AccessPolicy
 from .users.contacts import UserDirectory
+from .users.denials import AccessDeniedBus, DeniedAttemptCounter
 
 STATIC = Path(__file__).parent / "static"
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -56,7 +57,9 @@ def create_app(db_path: str = "club_events.db",
                clock: Callable[[], datetime] = datetime.now) -> FastAPI:
     conn = connect(db_path)
 
-    access = AccessPolicy(conn)
+    denial_bus = AccessDeniedBus()
+    denial_bus.subscribe(DeniedAttemptCounter(conn).handle)
+    access = AccessPolicy(conn, denial_bus)
     contacts = UserDirectory(conn)
     outbox = SqliteOutbox(conn)
 
@@ -67,6 +70,7 @@ def create_app(db_path: str = "club_events.db",
     dispatcher = NotificationDispatcher(outbox, contacts, senders or default_senders())
 
     app = FastAPI(title="Student-Club Event Management System")
+    app.state.denial_bus = denial_bus
     app.state.db = conn
     app.state.dispatcher = dispatcher
     app.include_router(events_router(event_service))
